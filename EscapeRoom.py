@@ -15,6 +15,49 @@ viz.mouse.setVisible(False)
 viz.mouse.setTrap(viz.ON)
 viz.MainView.collision(True)
 
+# --------- jumping ----------
+#
+isJumping = False
+jumpHeight = 3.0
+jumpDuration = 0.8
+jumpStartY = 0
+jumpStartTime = 0
+
+def jump():
+    global isJumping, jumpStartTime, jumpStartY
+    if not isJumping:
+        isJumping = True
+        jumpStartTime = viz.tick()
+        jumpStartY = viz.MainView.getPosition()[1]
+        vizact.ontimer(0, updateJump)
+
+def updateJump():
+    global isJumping, jumpStartTime, jumpStartY
+    if not isJumping:
+        return
+    
+    elapsed = viz.tick() - jumpStartTime
+    progress = elapsed / jumpDuration
+    
+    if progress >= 1.0:
+        currentPos = viz.MainView.getPosition()
+        viz.MainView.setPosition([currentPos[0], jumpStartY, currentPos[2]])
+        isJumping = False
+        vizact.killtimer(updateJump)
+        return
+    
+    if progress <= 0.5:
+        t = progress * 2
+        height = jumpStartY + jumpHeight * (1 - (1 - t) ** 2)
+    else:
+        t = (progress - 0.5) * 2
+        height = jumpStartY + jumpHeight * (1 - t ** 2)
+    
+    currentPos = viz.MainView.getPosition()
+    viz.MainView.setPosition([currentPos[0], height, currentPos[2]])
+
+vizact.onkeydown(' ', jump)
+
 #---------- MODEL ------------------
 
 room = viz.addChild('TestRoom.osgb')
