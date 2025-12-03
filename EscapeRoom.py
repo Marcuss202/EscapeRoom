@@ -2,6 +2,7 @@
 import vizcam
 import vizshape
 import vizact
+import random
 
 # ---------- setup ----------
 viz.setOption('viz.fullscreen', '1')
@@ -19,17 +20,18 @@ jumpHeight = 3.0
 jumpDuration = 0.8
 jumpStartY = 0
 jumpStartTime = 0
+jumpTimer = None
 
 def jump():
-    global isJumping, jumpStartTime, jumpStartY
+    global isJumping, jumpStartTime, jumpStartY, jumpTimer
     if not isJumping:
         isJumping = True
         jumpStartTime = viz.tick()
         jumpStartY = viz.MainView.getPosition()[1]
-        vizact.ontimer(0, updateJump)
+        jumpTimer = vizact.ontimer(0, updateJump)
 
 def updateJump():
-    global isJumping, jumpStartTime, jumpStartY
+    global isJumping, jumpStartTime, jumpStartY, jumpTimer
     if not isJumping:
         return
     
@@ -40,7 +42,9 @@ def updateJump():
         currentPos = viz.MainView.getPosition()
         viz.MainView.setPosition([currentPos[0], jumpStartY, currentPos[2]])
         isJumping = False
-        vizact.killtimer(updateJump)
+        if jumpTimer:
+            jumpTimer.remove()
+            jumpTimer = None
         return
     
     if progress <= 0.5:
@@ -63,291 +67,169 @@ selectedSlot = 0
 
 def createInventoryUI():
     global inventoryUI
-    
+    inventoryUI = []
+
     for i in range(MAX_INVENTORY_SLOTS):
-        x_pos = 0.3 + (i * 0.1)
-        
-        slotBG = viz.addText('[ ]', parent=viz.SCREEN)
+        # Wider spacing between slots
+        x_pos = 0.25 + (i * 0.13)
+
+        # Bigger slot background
+        slotBG = viz.addText('[     ]', parent=viz.SCREEN)
         slotBG.setPosition(x_pos, 0.1)
-        slotBG.fontSize(40)
+        slotBG.fontSize(42)
         slotBG.alignment(viz.ALIGN_CENTER_CENTER)
-        if i == selectedSlot:
-            slotBG.color(1, 1, 0)
-        else:
-            slotBG.color(0.7, 0.7, 0.7)
-        
+        slotBG.color(1,1,0 if i == selectedSlot else 0.7)
+
         slotText = viz.addText(str(i + 1), parent=viz.SCREEN)
         slotText.setPosition(x_pos, 0.05)
-        slotText.color(1, 1, 1)
         slotText.fontSize(20)
         slotText.alignment(viz.ALIGN_CENTER_CENTER)
-        
+
+        # Code text (now fits inside wider slot)
+        codeText = viz.addText('', parent=viz.SCREEN)
+        codeText.setPosition(x_pos, 0.105)
+        codeText.fontSize(18)
+        codeText.alignment(viz.ALIGN_CENTER_CENTER)
+        codeText.color(1, 1, 0)
+        codeText.visible(False)
+
         inventoryUI.append({
             'background': slotBG,
-            'slotNumber': slotText
+            'slotNumber': slotText,
+            'codeText': codeText
         })
 
+
 def updateInventoryUI():
-    if len(inventoryUI) != MAX_INVENTORY_SLOTS:
-        return
-        
     for i in range(MAX_INVENTORY_SLOTS):
-        if i == selectedSlot:
-            inventoryUI[i]['background'].color(1, 1, 0)  # Spilgti dzeltens izvēlētai
+        inventoryUI[i]['background'].color(
+            1,1,0 if i == selectedSlot else 0.7
+        )
+
+        if inventory[i] and inventory[i]['type'] == 'code':
+            codePart = inventory[i]['name'].split(': ')[1]
+            inventoryUI[i]['codeText'].message(codePart)
+            inventoryUI[i]['codeText'].visible(True)
         else:
-            inventoryUI[i]['background'].color(0.7, 0.7, 0.7)  # Pelēks neizvēlētām
+            inventoryUI[i]['codeText'].visible(False)
+
 
 def addToInventory(itemName, itemType='generic'):
     for i in range(MAX_INVENTORY_SLOTS):
         if inventory[i] is None:
-            inventory[i] = {
-                'name': itemName,
-                'type': itemType
-            }
-            # Atjaunināt UI tikai ja tas eksistē
-            if len(inventoryUI) > 0:
-                updateInventoryUI()
+            inventory[i] = {'name': itemName, 'type': itemType}
+            updateInventoryUI()
             return True
-    
     return False
 
 def removeFromInventory(slotIndex):
-    if 0 <= slotIndex < MAX_INVENTORY_SLOTS and inventory[slotIndex] is not None:
-        removedItem = inventory[slotIndex]
+    if inventory[slotIndex]:
         inventory[slotIndex] = None
-        if len(inventoryUI) > 0:
-            updateInventoryUI()
-        return removedItem
-    return None
+        updateInventoryUI()
+        return True
+    return False
 
 def useItem(slotIndex):
-    if 0 <= slotIndex < MAX_INVENTORY_SLOTS and inventory[slotIndex] is not None:
-        return removeFromInventory(slotIndex)
+    if inventory[slotIndex]:
+        if inventory[slotIndex]['type'] == 'code':
+            print("Code cannot be used with E")
+            return None
+        removed = inventory[slotIndex]
+        inventory[slotIndex] = None
+        updateInventoryUI()
+        return removed
     return None
 
 def selectInventorySlot(slotNumber):
     global selectedSlot
-    if 0 <= slotNumber < MAX_INVENTORY_SLOTS:
-        selectedSlot = slotNumber
-        if len(inventoryUI) > 0:
-            updateInventoryUI()
+    selectedSlot = slotNumber
+    updateInventoryUI()
 
-# Inventory controls
-def onKey1(): selectInventorySlot(0)
-def onKey2(): selectInventorySlot(1)  
-def onKey3(): selectInventorySlot(2)
-def onKey4(): selectInventorySlot(3)
-def onKey5(): selectInventorySlot(4)
+vizact.onkeydown('1', lambda: selectInventorySlot(0))
+vizact.onkeydown('2', lambda: selectInventorySlot(1))
+vizact.onkeydown('3', lambda: selectInventorySlot(2))
+vizact.onkeydown('4', lambda: selectInventorySlot(3))
+vizact.onkeydown('5', lambda: selectInventorySlot(4))
 
+# --------- STICKY NOTE ----------
+noteCode = str(random.randint(1000, 9999))
+noteObject = None
+notePickedUp = False
+
+NOTE_POSITION = [-7.2, 5.7, 11.2]
+NOTE_PICKUP_RADIUS = 2.0
+
+def createNote():
+    global noteObject
+    noteObject = viz.addChild('StickyNote.fbx')
+    noteObject.setPosition(NOTE_POSITION)
+    noteObject.setScale([0.5, 0.5, 0.5])
+    noteObject.setEuler([0, 180, 0])
+    noteObject.disable(viz.DYNAMICS)
+    print("Sticky note created at:", noteObject.getPosition())
+
+def checkNotePickup():
+    if not noteObject or notePickedUp:
+        crosshair.color(1,1,1)
+        return
+
+    p = viz.MainView.getPosition()
+    n = noteObject.getPosition()
+    d = ((p[0]-n[0])**2 + (p[1]-n[1])**2 + (p[2]-n[2])**2) ** 0.5
+
+    if d < NOTE_PICKUP_RADIUS:
+        crosshair.color(1,1,0)
+    else:
+        crosshair.color(1,1,1)
+
+def onKeyF():
+    global notePickedUp, noteObject
+
+    if noteObject and not notePickedUp:
+        p = viz.MainView.getPosition()
+        n = noteObject.getPosition()
+        d = ((p[0]-n[0])**2 + (p[1]-n[1])**2 + (p[2]-n[2])**2) ** 0.5
+
+        if d < NOTE_PICKUP_RADIUS:
+            addToInventory(f"Safe Code: {noteCode}", "code")
+            noteObject.remove()
+            noteObject = None
+            notePickedUp = True
+            print("Sticky note picked up! Code:", noteCode)
+
+vizact.onkeydown('f', onKeyF)
+
+# --------- Inventory Use Key (SAFE) ----------
 def onKeyE():
     useItem(selectedSlot)
 
-def onKeyQ():
-    removeFromInventory(selectedSlot)
+vizact.onkeydown('e', onKeyE)
+vizact.onkeydown('q', lambda: removeFromInventory(selectedSlot))
 
-vizact.onkeydown('1', onKey1)
-vizact.onkeydown('2', onKey2)
-vizact.onkeydown('3', onKey3)
-vizact.onkeydown('4', onKey4)
-vizact.onkeydown('5', onKey5)
-vizact.onkeydown('e', onKeyE)  # Lietot priekšmetu
-vizact.onkeydown('q', onKeyQ)  # Nomest priekšmetu
+# --------- Crosshair ----------
+crosshair = viz.addText('+', parent=viz.SCREEN)
+crosshair.setPosition(0.5,0.5)
+crosshair.fontSize(24)
+crosshair.alignment(viz.ALIGN_CENTER_CENTER)
 
-# --------- safe interaction system ----------
-safeCode = "1234"  # Pareizais seifa kods (mainīt uz vēlamo kodu)
-safeOpen = False   # Vai safes ir atvērts
-currentInput = ""  # Pašreizējais ievadītais kods
-codeDisplay = None # Koda displejs
-safeUI = []        # Safes UI elementi
-
-def createCodeInputUI():
-    global codeDisplay, safeUI
-    
-    # Fona panelis
-    background = viz.addText('━━━━━━━━━━━━━━━━━━━━━━━━', parent=viz.SCREEN)
-    background.setPosition(0.5, 0.5)
-    background.color(0.2, 0.2, 0.2)
-    background.fontSize(30)
-    background.alignment(viz.ALIGN_CENTER_CENTER)
-    
-    # Virsraksts
-    title = viz.addText('IEVADIET KODU:', parent=viz.SCREEN)
-    title.setPosition(0.5, 0.6)
-    title.color(1, 1, 1)
-    title.fontSize(24)
-    title.alignment(viz.ALIGN_CENTER_CENTER)
-    
-    # Koda displejs
-    codeDisplay = viz.addText('_ _ _ _', parent=viz.SCREEN)
-    codeDisplay.setPosition(0.5, 0.5)
-    codeDisplay.color(0, 1, 0)
-    codeDisplay.fontSize(36)
-    codeDisplay.alignment(viz.ALIGN_CENTER_CENTER)
-    
-    # Instrukcijas
-    instructions = viz.addText('Ierakstiet ciparus 0-9, ESC lai aizvērtu', parent=viz.SCREEN)
-    instructions.setPosition(0.5, 0.4)
-    instructions.color(0.8, 0.8, 0.8)
-    instructions.fontSize(16)
-    instructions.alignment(viz.ALIGN_CENTER_CENTER)
-    
-    safeUI = [background, title, codeDisplay, instructions]
-
-def updateCodeDisplay():
-    if codeDisplay:
-        display = ""
-        for i in range(4):
-            if i < len(currentInput):
-                display += currentInput[i] + " "
-            else:
-                display += "_ "
-        codeDisplay.message(display.strip())
-
-def closeSafeUI():
-    global safeUI, codeDisplay, currentInput
-    for ui in safeUI:
-        ui.remove()
-    safeUI = []
-    codeDisplay = None
-    currentInput = ""
-    viz.mouse.setTrap(viz.ON)
-
-def onSafeKeyInput(key):
-    global currentInput
-    
-    if len(safeUI) == 0: 
-        return
-    
-    if key in '0123456789' and len(currentInput) < 4:
-        currentInput += key
-        updateCodeDisplay()
-        
-        if len(currentInput) == 4:
-            checkSafeCode()
-    
-    elif key == 'BackSpace' and len(currentInput) > 0:
-        currentInput = currentInput[:-1]
-        updateCodeDisplay()
-    
-    elif key == 'Escape':
-        closeSafeUI()
-
-def checkSafeCode():
-    global safeOpen, currentInput
-    
-    if currentInput == safeCode:
-        safeOpen = True
-        addToInventory("Safes Atslēga", "key")
-        
-        successMsg = viz.addText('SAFES ATVĒRTS!', parent=viz.SCREEN)
-        successMsg.setPosition(0.5, 0.3)
-        successMsg.color(0, 1, 0)
-        successMsg.fontSize(32)
-        successMsg.alignment(viz.ALIGN_CENTER_CENTER)
-        
-        def removeSuccessMsg():
-            successMsg.remove()
-        vizact.ontimer(2, removeSuccessMsg)
-        
-        closeSafeUI()
-    else:
-        errorMsg = viz.addText('NEPAREIZS KODS!', parent=viz.SCREEN)
-        errorMsg.setPosition(0.5, 0.3)
-        errorMsg.color(1, 0, 0)
-        errorMsg.fontSize(24)
-        errorMsg.alignment(viz.ALIGN_CENTER_CENTER)
-        
-        def clearError():
-            errorMsg.remove()
-        vizact.ontimer(1.5, clearError)
-        
-        currentInput = ""
-        updateCodeDisplay()
-
-def openSafe():
-    if not safeOpen:
-        createCodeInputUI()
-        viz.mouse.setTrap(viz.OFF)
-
-vizact.onkeydown('0', lambda: onSafeKeyInput('0'))
-vizact.onkeydown('1', lambda: onSafeKeyInput('1'))
-vizact.onkeydown('2', lambda: onSafeKeyInput('2'))
-vizact.onkeydown('3', lambda: onSafeKeyInput('3'))
-vizact.onkeydown('4', lambda: onSafeKeyInput('4'))
-vizact.onkeydown('5', lambda: onSafeKeyInput('5'))
-vizact.onkeydown('6', lambda: onSafeKeyInput('6'))
-vizact.onkeydown('7', lambda: onSafeKeyInput('7'))
-vizact.onkeydown('8', lambda: onSafeKeyInput('8'))
-vizact.onkeydown('9', lambda: onSafeKeyInput('9'))
-vizact.onkeydown(viz.KEY_BACKSPACE, lambda: onSafeKeyInput('BackSpace'))
-vizact.onkeydown(viz.KEY_ESCAPE, lambda: onSafeKeyInput('Escape'))
-
-
-
-# --------- crosshair system ----------
-crosshair = None
-
-def createCrosshair():
-    global crosshair
-    
-    crosshair = viz.addText('+', parent=viz.SCREEN)
-    crosshair.setPosition(0.5, 0.5)  # Ekrāna centrs
-    crosshair.color(1, 1, 1)  # Balts
-    crosshair.fontSize(24)
-    crosshair.alignment(viz.ALIGN_CENTER_CENTER)
-
-# --------- mouse interaction system ----------
-def onMouseDown():
-    print("Mouse clicked!")  # Debug: confirm function is called
-    mousePos = viz.mouse.getPosition()
-    windowSize = viz.window.getSize()
-    
-    print(f"Mouse position: {mousePos}")
-    print(f"Window size: {windowSize}")
-
-    screenCenterX = 0.5
-    screenCenterY = 0.5
-    clickRadius = 0.15  # Increased radius
-    
-
-    normalizedX = mousePos[0] / windowSize[0]
-    normalizedY = mousePos[1] / windowSize[1]
-    
-    print(f"Normalized: ({normalizedX:.3f}, {normalizedY:.3f})")
-    
-    distanceFromCenter = ((normalizedX - screenCenterX)**2 + (normalizedY - screenCenterY)**2)**0.5
-    
-    print(f"Distance from center: {distanceFromCenter:.3f} (need < {clickRadius})")
-    
-    if distanceFromCenter <= clickRadius:
-        print("OPENING SAFE!")
-        openSafe()
-    else:
-        print("Too far from center")
-
-vizact.onmousedown(viz.MOUSEBUTTON_LEFT, onMouseDown)
-
-#---------- MODEL ------------------
-
+# ---------- MODEL ----------
 room = viz.addChild('TestRoom.osgb')
-room.setPosition(-10, 0, -10)
-room.setScale([0.05, 0.05, 0.05])
+room.setPosition(-10,0,-10)
+room.setScale([0.05,0.05,0.05])
 room.enable(viz.LIGHTING)
 
-movingBooks = room.getTransform('movingBooks') 
+movingBooks = room.getTransform('movingBooks')
 
 def kustinatGramatu():
-    action = vizact.moveTo([339.81381, 120, 92.62527], time=2.0, interpolate=vizact.easeInOut)
+    action = vizact.moveTo([339.81381,120,92.62527], time=2.0)
     movingBooks.addAction(action)
 
-# saista funkciju ar pogu (piemēram, "g" taustiņu)
 vizact.onkeydown('g', kustinatGramatu)
 
-# Inicializēt inventāra UI pēc visa ielādēšanās
+# ---------- INIT ----------
 def initializeInventoryUI():
     createInventoryUI()
-    updateInventoryUI()
-    createCrosshair()  # Pievienot krustveida mērķi
+    createNote()
+    vizact.ontimer2(0,0.1,checkNotePickup)
 
-# Izsaukt inventāra inicializāciju pēc īsa aizturējuma lai pārliecinātos ka viss ir gatavs
 vizact.ontimer(0.5, initializeInventoryUI)
