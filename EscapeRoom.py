@@ -88,20 +88,16 @@ def createInventoryUI():
         })
 
 def updateInventoryUI():
-    """Atjaunināt hotbar attēlojumu"""
-    # Pārbaudīt vai UI eksistē pirms atjaunināšanas
     if len(inventoryUI) != MAX_INVENTORY_SLOTS:
         return
         
     for i in range(MAX_INVENTORY_SLOTS):
-        # Atjaunināt vietas fona krāsu balstoties uz izvēli
         if i == selectedSlot:
             inventoryUI[i]['background'].color(1, 1, 0)  # Spilgti dzeltens izvēlētai
         else:
             inventoryUI[i]['background'].color(0.7, 0.7, 0.7)  # Pelēks neizvēlētām
 
 def addToInventory(itemName, itemType='generic'):
-    """Pievienot priekšmetu pirmajā pieejamajā inventāra vietā"""
     for i in range(MAX_INVENTORY_SLOTS):
         if inventory[i] is None:
             inventory[i] = {
@@ -116,28 +112,23 @@ def addToInventory(itemName, itemType='generic'):
     return False
 
 def removeFromInventory(slotIndex):
-    """Noņemt priekšmetu no noteiktas inventāra vietas"""
     if 0 <= slotIndex < MAX_INVENTORY_SLOTS and inventory[slotIndex] is not None:
         removedItem = inventory[slotIndex]
         inventory[slotIndex] = None
-        # Atjaunināt UI tikai ja tas eksistē
         if len(inventoryUI) > 0:
             updateInventoryUI()
         return removedItem
     return None
 
 def useItem(slotIndex):
-    """Lietot priekšmetu no inventāra"""
     if 0 <= slotIndex < MAX_INVENTORY_SLOTS and inventory[slotIndex] is not None:
         return removeFromInventory(slotIndex)
     return None
 
 def selectInventorySlot(slotNumber):
-    """Izvēlēties noteiktu inventāra vietu"""
     global selectedSlot
     if 0 <= slotNumber < MAX_INVENTORY_SLOTS:
         selectedSlot = slotNumber
-        # Atjaunināt UI tikai ja tas eksistē
         if len(inventoryUI) > 0:
             updateInventoryUI()
 
@@ -149,14 +140,11 @@ def onKey4(): selectInventorySlot(3)
 def onKey5(): selectInventorySlot(4)
 
 def onKeyE():
-    """Lietot priekšmetu pašlaik izvēlētajā vietā"""
     useItem(selectedSlot)
 
 def onKeyQ():
-    """Nomest priekšmetu no pašlaik izvēlētās vietas"""
     removeFromInventory(selectedSlot)
 
-# Saistīt inventāra vadības taustiņus
 vizact.onkeydown('1', onKey1)
 vizact.onkeydown('2', onKey2)
 vizact.onkeydown('3', onKey3)
@@ -166,14 +154,13 @@ vizact.onkeydown('e', onKeyE)  # Lietot priekšmetu
 vizact.onkeydown('q', onKeyQ)  # Nomest priekšmetu
 
 # --------- safe interaction system ----------
-safeCode = "1234"  # Pareizais safes kods (mainīt uz vēlamo kodu)
+safeCode = "1234"  # Pareizais seifa kods (mainīt uz vēlamo kodu)
 safeOpen = False   # Vai safes ir atvērts
 currentInput = ""  # Pašreizējais ievadītais kods
 codeDisplay = None # Koda displejs
 safeUI = []        # Safes UI elementi
 
 def createCodeInputUI():
-    """Izveidot koda ievades UI"""
     global codeDisplay, safeUI
     
     # Fona panelis
@@ -207,7 +194,6 @@ def createCodeInputUI():
     safeUI = [background, title, codeDisplay, instructions]
 
 def updateCodeDisplay():
-    """Atjaunināt koda displeju"""
     if codeDisplay:
         display = ""
         for i in range(4):
@@ -218,20 +204,18 @@ def updateCodeDisplay():
         codeDisplay.message(display.strip())
 
 def closeSafeUI():
-    """Aizvērt safes UI"""
     global safeUI, codeDisplay, currentInput
     for ui in safeUI:
         ui.remove()
     safeUI = []
     codeDisplay = None
     currentInput = ""
-    viz.mouse.setTrap(viz.ON)  # Atgriezt peles kontroli spēlei
+    viz.mouse.setTrap(viz.ON)
 
 def onSafeKeyInput(key):
-    """Apstrādāt taustiņu ievadi safes kodā"""
     global currentInput
     
-    if len(safeUI) == 0:  # Ja safes UI nav atvērts, neko nedarīt
+    if len(safeUI) == 0: 
         return
     
     if key in '0123456789' and len(currentInput) < 4:
@@ -249,36 +233,30 @@ def onSafeKeyInput(key):
         closeSafeUI()
 
 def checkSafeCode():
-    """Pārbaudīt vai ievadītais kods ir pareizs"""
     global safeOpen, currentInput
     
     if currentInput == safeCode:
         safeOpen = True
-        # Pievienot priekšmetu inventārā no safes
         addToInventory("Safes Atslēga", "key")
         
-        # Parādīt veiksmes ziņojumu
         successMsg = viz.addText('SAFES ATVĒRTS!', parent=viz.SCREEN)
         successMsg.setPosition(0.5, 0.3)
         successMsg.color(0, 1, 0)
         successMsg.fontSize(32)
         successMsg.alignment(viz.ALIGN_CENTER_CENTER)
         
-        # Noņemt ziņojumu pēc 2 sekundēm
         def removeSuccessMsg():
             successMsg.remove()
         vizact.ontimer(2, removeSuccessMsg)
         
         closeSafeUI()
     else:
-        # Nepareizs kods
         errorMsg = viz.addText('NEPAREIZS KODS!', parent=viz.SCREEN)
         errorMsg.setPosition(0.5, 0.3)
         errorMsg.color(1, 0, 0)
         errorMsg.fontSize(24)
         errorMsg.alignment(viz.ALIGN_CENTER_CENTER)
         
-        # Noņemt kļūdas ziņojumu un atiestatīt ievadi
         def clearError():
             errorMsg.remove()
         vizact.ontimer(1.5, clearError)
@@ -287,12 +265,10 @@ def checkSafeCode():
         updateCodeDisplay()
 
 def openSafe():
-    """Atvērt safes koda ievades ekrānu"""
     if not safeOpen:
         createCodeInputUI()
-        viz.mouse.setTrap(viz.OFF)  # Atbrīvot peli UI vadībai
+        viz.mouse.setTrap(viz.OFF)
 
-# Saistīt ciparu taustiņus safes kodā
 vizact.onkeydown('0', lambda: onSafeKeyInput('0'))
 vizact.onkeydown('1', lambda: onSafeKeyInput('1'))
 vizact.onkeydown('2', lambda: onSafeKeyInput('2'))
@@ -312,10 +288,8 @@ vizact.onkeydown(viz.KEY_ESCAPE, lambda: onSafeKeyInput('Escape'))
 crosshair = None
 
 def createCrosshair():
-    """Izveidot baltu + krustveida mērķi ekrāna centrā"""
     global crosshair
     
-    # Izveidot vienkāršu baltu + mērķi
     crosshair = viz.addText('+', parent=viz.SCREEN)
     crosshair.setPosition(0.5, 0.5)  # Ekrāna centrs
     crosshair.color(1, 1, 1)  # Balts
@@ -324,27 +298,33 @@ def createCrosshair():
 
 # --------- mouse interaction system ----------
 def onMouseDown():
-    """Apstrādāt peles klikšķus uz objektiem"""
-    # Get mouse position on screen
+    print("Mouse clicked!")  # Debug: confirm function is called
     mousePos = viz.mouse.getPosition()
+    windowSize = viz.window.getSize()
     
-    # Simple approach: only allow safe opening when clicking in center area of screen
-    # This assumes safe is roughly in center when looking at it
+    print(f"Mouse position: {mousePos}")
+    print(f"Window size: {windowSize}")
+
     screenCenterX = 0.5
     screenCenterY = 0.5
-    clickRadius = 0.1  # How close to center the click must be
+    clickRadius = 0.15  # Increased radius
     
-    # Normalize mouse position to 0-1 range
-    normalizedX = mousePos[0] / viz.window.getSize()[0]
-    normalizedY = mousePos[1] / viz.window.getSize()[1]
+
+    normalizedX = mousePos[0] / windowSize[0]
+    normalizedY = mousePos[1] / windowSize[1]
     
-    # Check if click is near screen center (where crosshair is)
+    print(f"Normalized: ({normalizedX:.3f}, {normalizedY:.3f})")
+    
     distanceFromCenter = ((normalizedX - screenCenterX)**2 + (normalizedY - screenCenterY)**2)**0.5
     
+    print(f"Distance from center: {distanceFromCenter:.3f} (need < {clickRadius})")
+    
     if distanceFromCenter <= clickRadius:
+        print("OPENING SAFE!")
         openSafe()
+    else:
+        print("Too far from center")
 
-# Saistīt peles klikšķu apstrādi
 vizact.onmousedown(viz.MOUSEBUTTON_LEFT, onMouseDown)
 
 #---------- MODEL ------------------
