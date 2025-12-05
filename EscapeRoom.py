@@ -250,6 +250,15 @@ def tryOpenDoor():
 
 vizact.onkeydown('t', tryOpenDoor)
 
+# ---------- OPEN SAFE -----------------
+safeDoor = room.getTransform('safeDoor')
+
+def openSafeAnim():
+    action = vizact.spin(0, -180, 0, speed=20, dur=2.0)
+    safeDoor.addAction(action)
+
+vizact.onkeydown('g', openSafeAnim)
+
 # --------- INIT ----------
 def initializeInventoryUI():
     createInventoryUI()
