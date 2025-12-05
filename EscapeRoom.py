@@ -8,6 +8,12 @@ import random
 viz.setOption('viz.fullscreen', '1')
 viz.go()
 
+# ---------- MODEL ----------
+room = viz.addChild('oldRoom.osgb')
+room.setPosition(10,0,0)
+room.setScale([0.015,0.015,0.015])
+room.enable(viz.LIGHTING)
+
 # --------- walk and mouse ----------
 vizcam.WalkNavigate(forward='w', backward='s', left='a', right='d', moveScale=2, turnScale=0.5)
 viz.mouse.setVisible(False)
