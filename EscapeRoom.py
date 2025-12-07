@@ -22,45 +22,45 @@ viz.mouse.setTrap(viz.ON)
 viz.MainView.collision(True)
 
 # --------- jumping ----------
-isJumping = False
-jumpHeight = 3.0
-jumpDuration = 0.8
-jumpStartY = 0
-jumpStartTime = 0
-jumpTimer = None
+# isJumping = False
+# jumpHeight = 3.0
+# jumpDuration = 0.8
+# jumpStartY = 0
+# jumpStartTime = 0
+# jumpTimer = None
 
-def jump():
-    global isJumping, jumpStartTime, jumpStartY, jumpTimer
-    if not isJumping:
-        isJumping = True
-        jumpStartTime = viz.tick()
-        jumpStartY = viz.MainView.getPosition()[1]
-        jumpTimer = vizact.ontimer(0, updateJump)
+# def jump():
+#     global isJumping, jumpStartTime, jumpStartY, jumpTimer
+#     if not isJumping:
+#         isJumping = True
+#         jumpStartTime = viz.tick()
+#         jumpStartY = viz.MainView.getPosition()[1]
+#         jumpTimer = vizact.ontimer(0, updateJump)
 
-def updateJump():
-    global isJumping, jumpStartTime, jumpStartY, jumpTimer
-    if not isJumping:
-        return
-    elapsed = viz.tick() - jumpStartTime
-    progress = elapsed / jumpDuration
-    if progress >= 1.0:
-        currentPos = viz.MainView.getPosition()
-        viz.MainView.setPosition([currentPos[0], jumpStartY, currentPos[2]])
-        isJumping = False
-        if jumpTimer:
-            jumpTimer.remove()
-            jumpTimer = None
-        return
-    if progress <= 0.5:
-        t = progress * 2
-        height = jumpStartY + jumpHeight * (1 - (1 - t) ** 2)
-    else:
-        t = (progress - 0.5) * 2
-        height = jumpStartY + jumpHeight * (1 - t ** 2)
-    currentPos = viz.MainView.getPosition()
-    viz.MainView.setPosition([currentPos[0], height, currentPos[2]])
+# def updateJump():
+#     global isJumping, jumpStartTime, jumpStartY, jumpTimer
+#     if not isJumping:
+#         return
+#     elapsed = viz.tick() - jumpStartTime
+#     progress = elapsed / jumpDuration
+#     if progress >= 1.0:
+#         currentPos = viz.MainView.getPosition()
+#         viz.MainView.setPosition([currentPos[0], jumpStartY, currentPos[2]])
+#         isJumping = False
+#         if jumpTimer:
+#             jumpTimer.remove()
+#             jumpTimer = None
+#         return
+#     if progress <= 0.5:
+#         t = progress * 2
+#         height = jumpStartY + jumpHeight * (1 - (1 - t) ** 2)
+#     else:
+#         t = (progress - 0.5) * 2
+#         height = jumpStartY + jumpHeight * (1 - t ** 2)
+#     currentPos = viz.MainView.getPosition()
+#     viz.MainView.setPosition([currentPos[0], height, currentPos[2]])
 
-vizact.onkeydown(' ', jump)
+# vizact.onkeydown(' ', jump)
 
 # --------- inventory system ----------
 MAX_INVENTORY_SLOTS = 5
@@ -153,28 +153,26 @@ crosshair.alignment(viz.ALIGN_CENTER_CENTER)
 
 # --------- STICKY NOTE ----------
 noteCode = str(random.randint(1000, 9999))
-noteObject = None
+# noteObject = None
 notePickedUp = False
-NOTE_PICKUP_RADIUS = 2.0
+# NOTE_PICKUP_RADIUS = 2.0
 
-def createNote():
-    global noteObject
-    noteObject = viz.addChild('StickyNote.fbx')
-    noteObject.setScale([0.5,0.5,0.5])
-    noteObject.setEuler([0, 180, 0])
-    noteObject.disable(viz.DYNAMICS)
-    print("Sticky note created at:", noteObject.getPosition())
+# def createNote():
+#     global noteObject
+#     noteObject = viz.addChild('StickyNote.fbx')
+#     noteObject.disable(viz.DYNAMICS)
+#     print("Sticky note created at:", noteObject.getPosition())
 
-def checkNotePickup():
-    if not noteObject or notePickedUp:
-        return
-    p = viz.MainView.getPosition()
-    n = noteObject.getPosition()
-    d = ((p[0]-n[0])**2 + (p[1]-n[1])**2 + (p[2]-n[2])**2) ** 0.5
-    if d < NOTE_PICKUP_RADIUS:
-        crosshair.color(1,1,0)
-    else:
-        crosshair.color(1,1,1)
+# def checkNotePickup():
+#     if not noteObject or notePickedUp:
+#         return
+#     p = viz.MainView.getPosition()
+#     n = noteObject.getPosition()
+#     d = ((p[0]-n[0])**2 + (p[1]-n[1])**2 + (p[2]-n[2])**2) ** 0.5
+#     if d < NOTE_PICKUP_RADIUS:
+#         crosshair.color(1,1,0)
+#     else:
+#         crosshair.color(1,1,1)
 
 # --------- SAFE SYSTEM ----------
 
@@ -193,23 +191,23 @@ def checkDoorProximity():
         crosshair.color(1,1,1)
 
 # --------- F key: note pickup ----------
-def onKeyF():
-    global notePickedUp, noteObject, safeLocked, keyTaken
-    p = viz.MainView.getPosition()
+# def onKeyF():
+#     global notePickedUp, noteObject, safeLocked, keyTaken
+#     p = viz.MainView.getPosition()
 
-    # Try pickup note
-    if noteObject and not notePickedUp:
-        n = noteObject.getPosition()
-        d_note = ((p[0]-n[0])**2 + (p[1]-n[1])**2 + (p[2]-n[2])**2) ** 0.5
-        if d_note < NOTE_PICKUP_RADIUS:
-            addToInventory(f"Safe Code: {noteCode}", "code")
-            noteObject.remove()
-            noteObject = None
-            notePickedUp = True
-            print("Sticky note picked up! Code:", noteCode)
-            return
+#     # Try pickup note
+#     if noteObject and not notePickedUp:
+#         n = noteObject.getPosition()
+#         d_note = ((p[0]-n[0])**2 + (p[1]-n[1])**2 + (p[2]-n[2])**2) ** 0.5
+#         if d_note < NOTE_PICKUP_RADIUS:
+#             addToInventory(f"Safe Code: {noteCode}", "code")
+#             noteObject.remove()
+#             noteObject = None
+#             notePickedUp = True
+#             print("Sticky note picked up! Code:", noteCode)
+#             return
 
-vizact.onkeydown('f', onKeyF)
+# vizact.onkeydown('f', onKeyF)
 
 # --------- T key: open door ----------
 def tryOpenDoor():
@@ -339,7 +337,47 @@ def openSafeAnim():
     action = vizact.spin(0, -180, 0, speed=20, dur=4.0)
     safeDoor.addAction(action)
 
-def pickSafe():
+# ---------- INTERACTION HANDLERS ----------
+
+noteObject = room.getTransform('stickyNote')
+
+def onClickStickyNote():
+    """Handle sticky note click pickup"""
+    global notePickedUp, noteObject
+    # ensure we have a reference to the transform inside the room
+    if not noteObject:
+        noteObject = room.getTransform('stickyNote') or room.getTransform('StickyNote')
+    if not noteObject or notePickedUp:
+        return
+
+    # Give code and hide the sticky note transform
+    addToInventory(f"Safe Code: {noteCode}", "code")
+    # Teleport the sticky note far outside the map and disable rendering as a fallback
+    try:
+        t = room.getTransform('stickyNote') or room.getTransform('StickyNote')
+        if t:
+            try:
+                t.setPosition([9999,9999,9999])
+            except Exception:
+                pass
+            try:
+                t.disable(viz.RENDERING)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    noteObject = None
+    notePickedUp = True
+    print("Sticky note picked up! Code:", noteCode)
+
+def onClickSafe():
+    """Handle safe click to open code entry GUI"""
+    safeGUI()
+
+
+#--------------------- INETERACT -----------------------------------------------
+def pickInteract():
     # Raycast straight ahead from the camera (aligned with crosshair)
     start = viz.MainView.getPosition()
     forward = viz.MainView.getMatrix().getForward()
@@ -354,18 +392,20 @@ def pickSafe():
         return
 
     node_name = getattr(hit, 'name', None)
+    print(f"Clicked object: {node_name}")
 
-    if node_name in ('safeDoor','safeDoorBox'):
-        safeGUI()
+    # Route interactions by name
+    if node_name == 'stickyNote':
+        onClickStickyNote()
+    elif node_name in ('safeDoor', 'safeDoorBox'):
+        onClickSafe()
         
-vizact.onmousedown(viz.MOUSEBUTTON_LEFT, pickSafe)
+vizact.onmousedown(viz.MOUSEBUTTON_LEFT, pickInteract)
 
 # --------- INIT ----------
 
-createNote()
 def initializeInventoryUI():
     createInventoryUI()
-    vizact.ontimer2(0,0.1,checkNotePickup)
     vizact.ontimer2(0,0.1,checkDoorProximity)
 
 vizact.ontimer(0.5, initializeInventoryUI)
