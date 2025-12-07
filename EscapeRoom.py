@@ -3,6 +3,7 @@ import vizcam
 import vizshape
 import vizact
 import random
+import vizinfo
 
 # ---------- Setup ----------
 viz.setOption('viz.fullscreen', '1')
@@ -15,7 +16,7 @@ room.setScale([0.015,0.015,0.015])
 room.enable(viz.LIGHTING)
 
 # --------- walk and mouse ----------
-vizcam.WalkNavigate(forward='w', backward='s', left='a', right='d', moveScale=2, turnScale=0.5)
+navigator = vizcam.WalkNavigate(forward='w', backward='s', left='a', right='d', moveScale=2, turnScale=0.5)
 viz.mouse.setVisible(False)
 viz.mouse.setTrap(viz.ON)
 viz.MainView.collision(True)
@@ -154,13 +155,11 @@ crosshair.alignment(viz.ALIGN_CENTER_CENTER)
 noteCode = str(random.randint(1000, 9999))
 noteObject = None
 notePickedUp = False
-NOTE_POSITION = [-7.2, 5.7, 11.2]
 NOTE_PICKUP_RADIUS = 2.0
 
 def createNote():
     global noteObject
     noteObject = viz.addChild('StickyNote.fbx')
-    noteObject.setPosition(NOTE_POSITION)
     noteObject.setScale([0.5,0.5,0.5])
     noteObject.setEuler([0, 180, 0])
     noteObject.disable(viz.DYNAMICS)
@@ -178,20 +177,7 @@ def checkNotePickup():
         crosshair.color(1,1,1)
 
 # --------- SAFE SYSTEM ----------
-SAFE_POSITION = [-5, 5.7, 9]
-SAFE_RADIUS = 2.0
-safeLocked = True
-keyTaken = False
-KEY_ITEM_NAME = "Door Key"
 
-def checkSafeProximity():
-    if safeLocked and not keyTaken:
-        p = viz.MainView.getPosition()
-        dist = ((p[0]-SAFE_POSITION[0])**2 + (p[1]-SAFE_POSITION[1])**2 + (p[2]-SAFE_POSITION[2])**2) ** 0.5
-        if dist < SAFE_RADIUS:
-            crosshair.color(0,1,1)  # cyan
-        else:
-            crosshair.color(1,1,1)
 
 # --------- DOOR SYSTEM ----------
 DOOR_POSITION = [-2, 0, 14]
@@ -206,7 +192,7 @@ def checkDoorProximity():
     else:
         crosshair.color(1,1,1)
 
-# --------- F key: note pickup & safe unlock ----------
+# --------- F key: note pickup ----------
 def onKeyF():
     global notePickedUp, noteObject, safeLocked, keyTaken
     p = viz.MainView.getPosition()
@@ -222,19 +208,6 @@ def onKeyF():
             notePickedUp = True
             print("Sticky note picked up! Code:", noteCode)
             return
-
-    # Try unlock safe
-    if safeLocked and not keyTaken:
-        dist_safe = ((p[0]-SAFE_POSITION[0])**2 + (p[1]-SAFE_POSITION[1])**2 + (p[2]-SAFE_POSITION[2])**2) ** 0.5
-        if dist_safe < SAFE_RADIUS:
-            hasCode = any(item and item['type'] == 'code' for item in inventory)
-            if hasCode:
-                print("Correct code! Safe unlocked.")
-                safeLocked = False
-                addToInventory(KEY_ITEM_NAME, "key")
-                keyTaken = True
-            else:
-                print("The safe is locked. You need the code.")
 
 vizact.onkeydown('f', onKeyF)
 
@@ -256,21 +229,143 @@ def tryOpenDoor():
 
 vizact.onkeydown('t', tryOpenDoor)
 
+# ------------ GUIs -------------------
+
+safePanel = None
+safeTextboxes = []
+enterCallback = None
+keypadCallback = None
+autoFocusTimer = None
+
+def safeGUI():
+    # Disable movement - remove the navigator completely
+    global navigator, safePanel, safeTextboxes, enterCallback, keypadCallback, autoFocusTimer
+    try:
+        navigator.remove()
+    except Exception:
+        pass
+    navigator = None
+    
+    # Show mouse and release trap so player can't look/turn until Enter
+    viz.mouse.setVisible(viz.ON)
+    viz.mouse.setTrap(viz.OFF)
+    viz.mouse.setOverride(viz.ON)
+    
+    # Create textbox for code entry
+    codeTextbox = viz.addTextbox()
+    codeTextbox.setLength(0.5)
+    codeTextbox.setPosition(.5, .5)
+    codeTextbox.fontSize(48)  # Make it bigger
+    codeTextbox.setFocus(True)  # Automatically focus the textbox
+    safeTextboxes = [codeTextbox]
+
+    # Auto-defocus when 4 digits are entered
+    def autoDefocus():
+        global autoFocusTimer
+        if not safeTextboxes:
+            return
+        text = safeTextboxes[0].get()
+        if len(text) >= 4:
+            safeTextboxes[0].setFocus(False)
+            if autoFocusTimer:
+                autoFocusTimer.remove()
+                autoFocusTimer = None
+
+    autoFocusTimer = vizact.ontimer(0, autoDefocus)
+    
+    # Add Enter key handlers to check code (both main Enter and keypad Enter)
+    def onEnter():
+        print("Enter key pressed!")
+        checkSafeCode()
+    
+    # Register both return and keypad enter for reliability
+    enterCallback = vizact.onkeydown(viz.KEY_RETURN, onEnter)
+    keypadCallback = vizact.onkeydown(viz.KEY_KP_ENTER, onEnter)
+    print("Safe GUI opened, Enter callbacks registered")
+    
+    return safeTextboxes
+
+def closeSafeGUI():
+    # Remove textbox
+    global navigator, safePanel, safeTextboxes, enterCallback, keypadCallback, autoFocusTimer
+    if safeTextboxes:
+        for tb in safeTextboxes:
+            tb.remove()
+    safeTextboxes = []
+    
+    # Remove enter key callbacks
+    if enterCallback:
+        enterCallback.remove()
+        enterCallback = None
+    if keypadCallback:
+        keypadCallback.remove()
+        keypadCallback = None
+    if autoFocusTimer:
+        autoFocusTimer.remove()
+        autoFocusTimer = None
+    
+    # Re-enable movement - recreate navigator
+    navigator = vizcam.WalkNavigate(forward='w', backward='s', left='a', right='d', moveScale=2, turnScale=0.5)
+    
+    # Hide mouse and trap again
+    viz.mouse.setVisible(viz.OFF)
+    viz.mouse.setTrap(viz.ON)
+    viz.mouse.setOverride(viz.OFF)
+
+def checkSafeCode():
+    global safeTextboxes, noteCode
+    if not safeTextboxes:
+        print("No textboxes!")
+        return
+    
+    code = safeTextboxes[0].get()
+    print(f"Checking code: '{code}' against '{noteCode}'")
+    
+    if code == noteCode:
+        print("Correct code!")
+        openSafeAnim()
+        closeSafeGUI()
+    else:
+        print(f"Wrong code! You entered: {code}, correct is: {noteCode}")
+        # Close GUI anyway so user can try again
+        closeSafeGUI()
+
 # ---------- OPEN SAFE -----------------
+
 safeDoor = room.getTransform('safeDoor')
+safeDoorBox = room.getTransform('safeDoorBox')
 
 def openSafeAnim():
-    action = vizact.spin(0, -180, 0, speed=20, dur=2.0)
+    action = vizact.spin(0, -180, 0, speed=20, dur=4.0)
     safeDoor.addAction(action)
 
-vizact.onkeydown('g', openSafeAnim)
+def pickSafe():
+    # Raycast straight ahead from the camera (aligned with crosshair)
+    start = viz.MainView.getPosition()
+    forward = viz.MainView.getMatrix().getForward()
+    ray_length = 2.0
+    end = [start[0] + forward[0] * ray_length,
+           start[1] + forward[1] * ray_length,
+           start[2] + forward[2] * ray_length]
+
+    hit = viz.intersect(start, end)
+
+    if not hit.valid:
+        return
+
+    node_name = getattr(hit, 'name', None)
+
+    if node_name in ('safeDoor','safeDoorBox'):
+        safeGUI()
+        
+vizact.onmousedown(viz.MOUSEBUTTON_LEFT, pickSafe)
 
 # --------- INIT ----------
+
+createNote()
 def initializeInventoryUI():
     createInventoryUI()
-    createNote()
     vizact.ontimer2(0,0.1,checkNotePickup)
-    vizact.ontimer2(0,0.1,checkSafeProximity)
     vizact.ontimer2(0,0.1,checkDoorProximity)
 
 vizact.ontimer(0.5, initializeInventoryUI)
