@@ -9,6 +9,12 @@ import vizinfo
 viz.setOption('viz.fullscreen', '0')
 viz.go()
 
+# --------- Timer for escape time ----------
+gameStartTime = viz.tick()
+
+# --------- Timer for escape time ----------
+gameStartTime = viz.tick()
+
 # ---------- MODEL ----------
 room = viz.addChild('OldRoom.osgb')
 if not room:
@@ -103,9 +109,13 @@ def createInventoryUI():
 def updateInventoryUI():
     for i in range(MAX_INVENTORY_SLOTS):
         inventoryUI[i]['background'].color(1,1,0 if i==selectedSlot else 0.7)
-        if inventory[i] and inventory[i]['type']=='code':
-            codePart = inventory[i]['name'].split(': ')[1]
-            inventoryUI[i]['codeText'].message(codePart)
+        if inventory[i]:
+            if inventory[i]['type']=='code':
+                codePart = inventory[i]['name'].split(': ')[1]
+                inventoryUI[i]['codeText'].message(codePart)
+            else:
+                # Display generic items like "key"
+                inventoryUI[i]['codeText'].message(inventory[i]['name'])
             inventoryUI[i]['codeText'].visible=True
         else:
             inventoryUI[i]['codeText'].visible=False
@@ -177,6 +187,11 @@ notePickedUp = False
 #         crosshair.color(1,1,0)
 #     else:
 #         crosshair.color(1,1,1)
+
+# --------- KEY SYSTEM ----------
+KEY_ITEM_NAME = "key"
+keyObject = None
+keyPickedUp = False
 
 # --------- DOOR SYSTEM ----------
 DOOR_POSITION = [-2,0,14]
@@ -318,7 +333,7 @@ noteObject = None
 transformsInitialized = False
 
 def initializeSafeTransforms():
-    global safeDoor, safeDoorBox, noteObject, transformsInitialized
+    global safeDoor, safeDoorBox, noteObject, keyObject, transformsInitialized
     if transformsInitialized:
         return
     
@@ -340,6 +355,13 @@ def initializeSafeTransforms():
         noteObject = room.getTransform('stickyNote')
     except:
         print("  stickyNote not found - that's OK")
+    
+    # Get key transform from the model
+    try:
+        keyObject = room.getTransform('key')
+        print("  Key transform found!")
+    except:
+        print("  Key transform not found")
     
     viz.setOption('viz.linkable', True)
     transformsInitialized = True
@@ -398,6 +420,92 @@ def onClickSafe():
     """Handle safe click to open code entry GUI"""
     safeGUI()
 
+def onClickKey():
+    """Handle key click pickup"""
+    global keyPickedUp, keyObject
+    if not keyObject or keyPickedUp:
+        return
+    
+    # Add key to inventory
+    addToInventory(KEY_ITEM_NAME, "generic")
+    
+    # Hide the key object
+    try:
+        if keyObject:
+            try:
+                keyObject.setPosition([9999, 9999, 9999])
+            except Exception:
+                pass
+    except Exception:
+        pass
+    
+    keyObject = None
+    keyPickedUp = True
+    print("Key picked up!")
+
+def onClickDoor():
+    """Handle door click to unlock with key"""
+    global doorLocked
+    if doorLocked:
+        hasKey = any(item and item['name']==KEY_ITEM_NAME for item in inventory)
+        if hasKey:
+            print("Door unlocked! You escaped!")
+            doorLocked = False
+            showOutro()
+        else:
+            print("The door is locked. You need a key.")
+
+def showOutro():
+    """Display outro screen with escape time"""
+    # Calculate escape time
+    escapeTime = viz.tick() - gameStartTime
+    minutes = int(escapeTime // 60)
+    seconds = int(escapeTime % 60)
+    
+    # Hide everything
+# remove inventory UI nodes so they are gone for the outro screen
+for ui in inventoryUI:
+    try:
+        if ui['background']:
+            ui['background'].remove()
+    except Exception:
+        pass
+    try:
+        if ui['slotNumber']:
+            ui['slotNumber'].remove()
+    except Exception:
+        pass
+    try:
+        if ui['codeText']:
+            ui['codeText'].remove()
+    except Exception:
+        pass
+
+    crosshair.alpha(0)
+
+    
+    # Create black background
+    blackScreen = viz.addTexQuad(parent=viz.SCREEN, size=2)
+    blackScreen.setPosition(0.5, 0.5)
+    blackScreen.color(0, 0, 0)
+    
+    # Create "You have escaped!" text
+    escapeText = viz.addText('You have escaped!', parent=viz.SCREEN)
+    escapeText.setPosition(0.5, 0.6)
+    escapeText.fontSize(60)
+    escapeText.alignment(viz.ALIGN_CENTER_CENTER)
+    escapeText.color(1, 1, 1)
+    
+    # Create time text
+    timeText = viz.addText(f'Time: {minutes:02d}:{seconds:02d}', parent=viz.SCREEN)
+    timeText.setPosition(0.5, 0.4)
+    timeText.fontSize(40)
+    timeText.alignment(viz.ALIGN_CENTER_CENTER)
+    timeText.color(1, 1, 0)
+    
+    # Quit after 5 seconds
+    vizact.ontimer2(5, 0, viz.quit)
+
 #--------------------- INETERACT -----------------------------------------------
 def pickInteract():
     # Raycast straight ahead from the camera (aligned with crosshair)
@@ -423,6 +531,10 @@ def pickInteract():
         onClickSafe()
     elif node_name == 'painting':
         onClickPainting()
+    elif node_name and 'key' in node_name.lower():
+        onClickKey()
+    elif node_name == 'door':
+        onClickDoor()
         
 vizact.onmousedown(viz.MOUSEBUTTON_LEFT, pickInteract)
 
