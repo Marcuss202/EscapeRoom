@@ -348,6 +348,20 @@ def openSafeAnim():
 
 # ---------- INTERACTION HANDLERS ----------
 
+def onClickPainting():
+    paintingMoved = False
+
+    painting = room.getTransform('painting')
+
+    if painting and not paintingMoved:
+        paintingMoved = True
+        action = vizact.moveTo([ -10.80915, 36.40491, -97.85873], time=0.5)
+        painting.addAction(action)
+    else:
+        print("WARNING: Cannot move painting - painting transform not available")
+
+
+
 def onClickStickyNote():
     """Handle sticky note click pickup"""
     global notePickedUp, noteObject
@@ -401,6 +415,8 @@ def pickInteract():
         onClickStickyNote()
     elif node_name in ('safeDoor', 'safeDoorBox'):
         onClickSafe()
+    elif node_name == 'painting':
+        onClickPainting()
         
 vizact.onmousedown(viz.MOUSEBUTTON_LEFT, pickInteract)
 
