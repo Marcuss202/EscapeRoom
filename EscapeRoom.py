@@ -91,16 +91,16 @@ def createInventoryUI():
         x_pos = 0.25 + (i * 0.13)
         slotBG = viz.addText('[     ]', parent=viz.SCREEN)
         slotBG.setPosition(x_pos, 0.1)
-        slotBG.fontSize = 42
+        slotBG.fontSize(24)
         slotBG.alignment(viz.ALIGN_CENTER_CENTER)
         slotBG.color(1,1,0 if i == selectedSlot else 0.7)
         slotText = viz.addText(str(i+1), parent=viz.SCREEN)
         slotText.setPosition(x_pos,0.05)
-        slotText.fontSize = 20
+        slotText.fontSize(16)
         slotText.alignment(viz.ALIGN_CENTER_CENTER)
         codeText = viz.addText('', parent=viz.SCREEN)
         codeText.setPosition(x_pos,0.105)
-        codeText.fontSize = 18
+        codeText.fontSize(14)
         codeText.alignment(viz.ALIGN_CENTER_CENTER)
         codeText.color(1,1,0)
         codeText.visible = False
@@ -113,6 +113,8 @@ def updateInventoryUI():
             if inventory[i]['type']=='code':
                 codePart = inventory[i]['name'].split(': ')[1]
                 inventoryUI[i]['codeText'].message(codePart)
+            elif inventory[i]['type']=='hint':
+                inventoryUI[i]['codeText'].message('Note')
             else:
                 # Display generic items like "key"
                 inventoryUI[i]['codeText'].message(inventory[i]['name'])
@@ -137,9 +139,18 @@ def removeFromInventory(slotIndex):
 
 def useItem(slotIndex):
     if inventory[slotIndex]:
-        if inventory[slotIndex]['type']=='code':
+        itemType = inventory[slotIndex]['type']
+        itemName = inventory[slotIndex]['name']
+        
+        if itemType == 'code':
             print("Code cannot be used with E")
             return None
+        elif itemType == 'hint':
+            # Show hint message
+            showHint(itemName)
+            return None
+        
+        # For other items, remove from inventory and return
         removed = inventory[slotIndex]
         inventory[slotIndex] = None
         updateInventoryUI()
@@ -230,6 +241,38 @@ safeTextboxes = []
 enterCallback = None
 keypadCallback = None
 autoFocusTimer = None
+hintPanel = None
+hintText = None
+hintTimer = None
+
+def showHint(hintMessage):
+    """Show a hint message in top-left corner for a few seconds"""
+    global hintText, hintTimer
+    
+    # Remove existing hint if any
+    if hintText:
+        hintText.remove()
+    if hintTimer:
+        hintTimer.remove()
+    
+    # Create text in top-left corner
+    hintText = viz.addText(hintMessage, parent=viz.SCREEN)
+    hintText.setPosition(0.05, 0.95)
+    hintText.fontSize(28)
+    hintText.alignment(viz.ALIGN_LEFT_TOP)
+    hintText.color(1, 1, 0)  # Yellow
+    
+    # Auto-remove after 5 seconds
+    def removeHint():
+        global hintText, hintTimer
+        if hintText:
+            hintText.remove()
+            hintText = None
+        if hintTimer:
+            hintTimer.remove()
+            hintTimer = None
+    
+    hintTimer = vizact.ontimer(5.0, removeHint)
 
 def safeGUI():
     # Disable movement - remove the navigator completely
@@ -318,6 +361,8 @@ def checkSafeCode():
     if code == noteCode:
         print("Correct code!")
         openSafeAnim()
+        # Add hint note to inventory
+        addToInventory("The key is hidden behind the painting", "hint")
         closeSafeGUI()
     else:
         print(f"Wrong code! You entered: {code}, correct is: {noteCode}")
@@ -331,6 +376,7 @@ safeDoor = None
 safeDoorBox = None
 noteObject = None
 transformsInitialized = False
+safeOpened = False  # Track if safe has been opened
 
 def initializeSafeTransforms():
     global safeDoor, safeDoorBox, noteObject, keyObject, transformsInitialized
@@ -368,9 +414,13 @@ def initializeSafeTransforms():
     print("Safe transforms initialization complete")
 
 def openSafeAnim():
-    if safeDoor:
+    global safeOpened
+    if safeDoor and not safeOpened:
         action = vizact.spin(0, -180, 0, speed=20, dur=4.0)
         safeDoor.addAction(action)
+        safeOpened = True
+    elif safeOpened:
+        print("Safe is already open")
     else:
         print("WARNING: Cannot open safe - safeDoor transform not available")
 
@@ -418,6 +468,10 @@ def onClickStickyNote():
 
 def onClickSafe():
     """Handle safe click to open code entry GUI"""
+    global safeOpened
+    if safeOpened:
+        print("Safe is already open")
+        return
     safeGUI()
 
 def onClickKey():
@@ -511,7 +565,7 @@ def pickInteract():
     # Raycast straight ahead from the camera (aligned with crosshair)
     start = viz.MainView.getPosition()
     forward = viz.MainView.getMatrix().getForward()
-    ray_length = 2.0
+    ray_length = 3.0
     end = [start[0] + forward[0] * ray_length,
            start[1] + forward[1] * ray_length,
            start[2] + forward[2] * ray_length]
