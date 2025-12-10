@@ -5,17 +5,13 @@ import vizact
 import random
 import vizinfo
 
-# ---------- Setup ----------
 viz.setOption('viz.fullscreen', '0')
 viz.go()
 
-# --------- Timer for escape time ----------
 gameStartTime = viz.tick()
 
-# --------- Timer for escape time ----------
 gameStartTime = viz.tick()
 
-# ---------- MODEL ----------
 room = viz.addChild('OldRoom.osgb')
 if not room:
     print("ERROR: Failed to load room model")
@@ -25,60 +21,17 @@ room.setPosition(10,0,0)
 room.setScale([0.015,0.015,0.015])
 room.enable(viz.LIGHTING)
 
-# --------- background music ----------
 bgMusic = viz.addAudio('../IntenseActionBgMusic.mp3')
-bgMusic.volume(0.005)  # Quiet volume
+bgMusic.volume(0.005)
 bgMusic.loop(viz.LOOP)
 bgMusic.play()
 
-# --------- walk and mouse ----------
 navigator = vizcam.WalkNavigate(forward='w', backward='s', left='a', right='d', moveScale=2, turnScale=0.5)
 viz.mouse.setVisible(False)
 viz.mouse.setTrap(viz.ON)
 viz.MainView.collision(True)
 
-# --------- jumping ----------
-# isJumping = False
-# jumpHeight = 3.0
-# jumpDuration = 0.8
-# jumpStartY = 0
-# jumpStartTime = 0
-# jumpTimer = None
 
-# def jump():
-#     global isJumping, jumpStartTime, jumpStartY, jumpTimer
-#     if not isJumping:
-#         isJumping = True
-#         jumpStartTime = viz.tick()
-#         jumpStartY = viz.MainView.getPosition()[1]
-#         jumpTimer = vizact.ontimer(0, updateJump)
-
-# def updateJump():
-#     global isJumping, jumpStartTime, jumpStartY, jumpTimer
-#     if not isJumping:
-#         return
-#     elapsed = viz.tick() - jumpStartTime
-#     progress = elapsed / jumpDuration
-#     if progress >= 1.0:
-#         currentPos = viz.MainView.getPosition()
-#         viz.MainView.setPosition([currentPos[0], jumpStartY, currentPos[2]])
-#         isJumping = False
-#         if jumpTimer:
-#             jumpTimer.remove()
-#             jumpTimer = None
-#         return
-#     if progress <= 0.5:
-#         t = progress * 2
-#         height = jumpStartY + jumpHeight * (1 - (1 - t) ** 2)
-#     else:
-#         t = (progress - 0.5) * 2
-#         height = jumpStartY + jumpHeight * (1 - t ** 2)
-#     currentPos = viz.MainView.getPosition()
-#     viz.MainView.setPosition([currentPos[0], height, currentPos[2]])
-
-# vizact.onkeydown(' ', jump)
-
-# --------- inventory system ----------
 MAX_INVENTORY_SLOTS = 5
 inventory = [None] * MAX_INVENTORY_SLOTS
 inventoryUI = []
@@ -116,7 +69,6 @@ def updateInventoryUI():
             elif inventory[i]['type']=='hint':
                 inventoryUI[i]['codeText'].message('Note')
             else:
-                # Display generic items like "key"
                 inventoryUI[i]['codeText'].message(inventory[i]['name'])
             inventoryUI[i]['codeText'].visible=True
         else:
@@ -143,14 +95,11 @@ def useItem(slotIndex):
         itemName = inventory[slotIndex]['name']
         
         if itemType == 'code':
-            print("Code cannot be used with E")
             return None
         elif itemType == 'hint':
-            # Show hint message
             showHint(itemName)
             return None
         
-        # For other items, remove from inventory and return
         removed = inventory[slotIndex]
         inventory[slotIndex] = None
         updateInventoryUI()
@@ -170,71 +119,19 @@ vizact.onkeydown('5', lambda: selectInventorySlot(4))
 vizact.onkeydown('e', lambda: useItem(selectedSlot))
 vizact.onkeydown('q', lambda: removeFromInventory(selectedSlot))
 
-# --------- crosshair ----------
 crosshair = viz.addText('+', parent=viz.SCREEN)
 crosshair.setPosition(0.5,0.5)
 crosshair.fontSize = 24
 crosshair.alignment(viz.ALIGN_CENTER_CENTER)
 
-# --------- STICKY NOTE ----------
 noteCode = str(random.randint(1000, 9999))
-# noteObject = None
 notePickedUp = False
-# NOTE_PICKUP_RADIUS = 2.0
 
-# def createNote():
-#     global noteObject
-#     noteObject = viz.addChild('StickyNote.fbx')
-#     noteObject.disable(viz.DYNAMICS)
-#     print("Sticky note created at:", noteObject.getPosition())
-
-# def checkNotePickup():
-#     if not noteObject or notePickedUp:
-#         return
-#     p = viz.MainView.getPosition()
-#     n = noteObject.getPosition()
-#     d = ((p[0]-n[0])**2 + (p[1]-n[1])**2 + (p[2]-n[2])**2) ** 0.5
-#     if d < NOTE_PICKUP_RADIUS:
-#         crosshair.color(1,1,0)
-#     else:
-#         crosshair.color(1,1,1)
-
-# --------- KEY SYSTEM ----------
 KEY_ITEM_NAME = "key"
 keyObject = None
 keyPickedUp = False
-
-# --------- DOOR SYSTEM ----------
-DOOR_POSITION = [-2,0,14]
-DOOR_RADIUS = 2.5
 doorLocked = True
 
-def checkDoorProximity():
-    p = viz.MainView.getPosition()
-    dist = ((p[0]-DOOR_POSITION[0])**2 + (p[1]-DOOR_POSITION[1])**2 + (p[2]-DOOR_POSITION[2])**2)**0.5
-    if dist<DOOR_RADIUS:
-        crosshair.color(0,1,0)
-    else:
-        crosshair.color(1,1,1)
-
-def tryOpenDoor():
-    global doorLocked
-    p = viz.MainView.getPosition()
-    dist = ((p[0]-DOOR_POSITION[0])**2 + (p[1]-DOOR_POSITION[1])**2 + (p[2]-DOOR_POSITION[2])**2)**0.5
-    if dist>DOOR_RADIUS:
-        return
-    if doorLocked:
-        hasKey = any(item and item['name']==KEY_ITEM_NAME for item in inventory)
-        if hasKey:
-            print("Door unlocked! You escaped!")
-            doorLocked = False
-            viz.quit()
-        else:
-            print("The door is locked. You need a key.")
-
-vizact.onkeydown('t', tryOpenDoor)
-
-# ------------ GUIs -------------------
 
 safePanel = None
 safeTextboxes = []
@@ -246,23 +143,19 @@ hintText = None
 hintTimer = None
 
 def showHint(hintMessage):
-    """Show a hint message in top-left corner for a few seconds"""
     global hintText, hintTimer
     
-    # Remove existing hint if any
     if hintText:
         hintText.remove()
     if hintTimer:
         hintTimer.remove()
     
-    # Create text in top-left corner
     hintText = viz.addText(hintMessage, parent=viz.SCREEN)
     hintText.setPosition(0.05, 0.95)
     hintText.fontSize(28)
     hintText.alignment(viz.ALIGN_LEFT_TOP)
-    hintText.color(1, 1, 0)  # Yellow
+    hintText.color(1, 1, 0)
     
-    # Auto-remove after 5 seconds
     def removeHint():
         global hintText, hintTimer
         if hintText:
@@ -275,7 +168,6 @@ def showHint(hintMessage):
     hintTimer = vizact.ontimer(5.0, removeHint)
 
 def safeGUI():
-    # Disable movement - remove the navigator completely
     global navigator, safePanel, safeTextboxes, enterCallback, keypadCallback, autoFocusTimer
     try:
         navigator.remove()
@@ -283,20 +175,17 @@ def safeGUI():
         pass
     navigator = None
     
-    # Show mouse and release trap so player can't look/turn until Enter
     viz.mouse.setVisible(viz.ON)
     viz.mouse.setTrap(viz.OFF)
     viz.mouse.setOverride(viz.ON)
     
-    # Create textbox for code entry
     codeTextbox = viz.addTextbox()
     codeTextbox.setLength(0.5)
     codeTextbox.setPosition(.5, .5)
-    codeTextbox.fontSize(48)  # Make it bigger
-    codeTextbox.setFocus(True)  # Automatically focus the textbox
+    codeTextbox.fontSize(48)
+    codeTextbox.setFocus(True)
     safeTextboxes = [codeTextbox]
 
-    # Auto-defocus when 4 digits are entered
     def autoDefocus():
         global autoFocusTimer
         if not safeTextboxes:
@@ -310,27 +199,20 @@ def safeGUI():
 
     autoFocusTimer = vizact.ontimer(0, autoDefocus)
     
-    # Add Enter key handlers to check code (both main Enter and keypad Enter)
     def onEnter():
-        print("Enter key pressed!")
         checkSafeCode()
     
-    # Register both return and keypad enter for reliability
     enterCallback = vizact.onkeydown(viz.KEY_RETURN, onEnter)
-    keypadCallback = vizact.onkeydown(viz.KEY_KP_ENTER, onEnter)
-    print("Safe GUI opened, Enter callbacks registered")
-    
+    keypadCallback = vizact.onkeydown(viz.KEY_KP_ENTER, onEnter)    
     return safeTextboxes
 
 def closeSafeGUI():
-    # Remove textbox
     global navigator, safePanel, safeTextboxes, enterCallback, keypadCallback, autoFocusTimer
     if safeTextboxes:
         for tb in safeTextboxes:
             tb.remove()
     safeTextboxes = []
     
-    # Remove enter key callbacks
     if enterCallback:
         enterCallback.remove()
         enterCallback = None
@@ -341,10 +223,8 @@ def closeSafeGUI():
         autoFocusTimer.remove()
         autoFocusTimer = None
     
-    # Re-enable movement - recreate navigator
     navigator = vizcam.WalkNavigate(forward='w', backward='s', left='a', right='d', moveScale=2, turnScale=0.5)
     
-    # Hide mouse and trap again
     viz.mouse.setVisible(viz.OFF)
     viz.mouse.setTrap(viz.ON)
     viz.mouse.setOverride(viz.OFF)
@@ -352,31 +232,24 @@ def closeSafeGUI():
 def checkSafeCode():
     global safeTextboxes, noteCode
     if not safeTextboxes:
-        print("No textboxes!")
         return
     
     code = safeTextboxes[0].get()
-    print(f"Checking code: '{code}' against '{noteCode}'")
     
     if code == noteCode:
-        print("Correct code!")
         openSafeAnim()
-        # Add hint note to inventory
-        addToInventory("The key is hidden behind the painting", "hint")
+        addToInventory("The key shall hides within the walls", "hint")
         closeSafeGUI()
     else:
-        print(f"Wrong code! You entered: {code}, correct is: {noteCode}")
-        # Close GUI anyway so user can try again
+        showHint("Wrong code. Try again.")
         closeSafeGUI()
 
-# ---------- OPEN SAFE -----------------
 
-# These will be initialized after the model loads
 safeDoor = None
 safeDoorBox = None
 noteObject = None
 transformsInitialized = False
-safeOpened = False  # Track if safe has been opened
+safeOpened = False
 
 def initializeSafeTransforms():
     global safeDoor, safeDoorBox, noteObject, keyObject, transformsInitialized
@@ -385,7 +258,6 @@ def initializeSafeTransforms():
     
     print("Initializing safe transforms...")
     
-    # Try to get each transform, but suppress errors if they don't exist
     viz.setOption('viz.linkable', False)
     try:
         safeDoor = room.getTransform('safeDoor')
@@ -402,7 +274,6 @@ def initializeSafeTransforms():
     except:
         print("  stickyNote not found - that's OK")
     
-    # Get key transform from the model
     try:
         keyObject = room.getTransform('key')
         print("  Key transform found!")
@@ -424,7 +295,6 @@ def openSafeAnim():
     else:
         print("WARNING: Cannot open safe - safeDoor transform not available")
 
-# ---------- INTERACTION HANDLERS ----------
 
 def onClickPainting():
     paintingMoved = False
@@ -441,14 +311,11 @@ def onClickPainting():
 
 
 def onClickStickyNote():
-    """Handle sticky note click pickup"""
     global notePickedUp, noteObject
     if not noteObject or notePickedUp:
         return
 
-    # Give code and hide the sticky note transform
     addToInventory(f"Safe Code: {noteCode}", "code")
-    # Teleport the sticky note far outside the map and disable rendering as a fallback
     try:
         if noteObject:
             try:
@@ -464,26 +331,20 @@ def onClickStickyNote():
 
     noteObject = None
     notePickedUp = True
-    print("Sticky note picked up! Code:", noteCode)
 
 def onClickSafe():
-    """Handle safe click to open code entry GUI"""
     global safeOpened
     if safeOpened:
-        print("Safe is already open")
         return
     safeGUI()
 
 def onClickKey():
-    """Handle key click pickup"""
     global keyPickedUp, keyObject
     if not keyObject or keyPickedUp:
         return
     
-    # Add key to inventory
     addToInventory(KEY_ITEM_NAME, "generic")
     
-    # Hide the key object
     try:
         if keyObject:
             try:
@@ -495,74 +356,57 @@ def onClickKey():
     
     keyObject = None
     keyPickedUp = True
-    print("Key picked up!")
 
 def onClickDoor():
-    """Handle door click to unlock with key"""
     global doorLocked
     if doorLocked:
         hasKey = any(item and item['name']==KEY_ITEM_NAME for item in inventory)
         if hasKey:
-            print("Door unlocked! You escaped!")
             doorLocked = False
             showOutro()
         else:
-            print("The door is locked. You need a key.")
+            showHint("The door is locked. You need a key.")
 
 def showOutro():
-    """Display outro screen with escape time"""
-    # Calculate escape time
+    global navigator
+    
     escapeTime = viz.tick() - gameStartTime
     minutes = int(escapeTime // 60)
     seconds = int(escapeTime % 60)
     
-    # Hide everything
-# remove inventory UI nodes so they are gone for the outro screen
-for ui in inventoryUI:
     try:
-        if ui['background']:
-            ui['background'].remove()
+        navigator.remove()
     except Exception:
         pass
-    try:
-        if ui['slotNumber']:
-            ui['slotNumber'].remove()
-    except Exception:
-        pass
-    try:
-        if ui['codeText']:
-            ui['codeText'].remove()
-    except Exception:
-        pass
-
-    crosshair.alpha(0)
-
+    navigator = None
     
-    # Create black background
-    blackScreen = viz.addTexQuad(parent=viz.SCREEN, size=2)
-    blackScreen.setPosition(0.5, 0.5)
+    
+    try:
+        crosshair.remove()
+    except Exception:
+        pass
+    
+    blackScreen = viz.addTexQuad(parent=viz.SCREEN)
+    blackScreen.setPosition(0.5, 0.5, 0)
+    blackScreen.setScale(20, 20)
     blackScreen.color(0, 0, 0)
     
-    # Create "You have escaped!" text
     escapeText = viz.addText('You have escaped!', parent=viz.SCREEN)
     escapeText.setPosition(0.5, 0.6)
     escapeText.fontSize(60)
     escapeText.alignment(viz.ALIGN_CENTER_CENTER)
     escapeText.color(1, 1, 1)
     
-    # Create time text
     timeText = viz.addText(f'Time: {minutes:02d}:{seconds:02d}', parent=viz.SCREEN)
     timeText.setPosition(0.5, 0.4)
     timeText.fontSize(40)
     timeText.alignment(viz.ALIGN_CENTER_CENTER)
     timeText.color(1, 1, 0)
     
-    # Quit after 5 seconds
+    vizact.ontimer(5.0, viz.quit)
     vizact.ontimer2(5, 0, viz.quit)
 
-#--------------------- INETERACT -----------------------------------------------
 def pickInteract():
-    # Raycast straight ahead from the camera (aligned with crosshair)
     start = viz.MainView.getPosition()
     forward = viz.MainView.getMatrix().getForward()
     ray_length = 3.0
@@ -576,9 +420,8 @@ def pickInteract():
         return
 
     node_name = getattr(hit, 'name', None)
-    print(f"Clicked object: {node_name}")
+    #print(f"Clicked object: {node_name}")
 
-    # Route interactions by name
     if node_name == 'stickyNote':
         onClickStickyNote()
     elif node_name in ('safeDoor', 'safeDoorBox'):
@@ -592,7 +435,6 @@ def pickInteract():
         
 vizact.onmousedown(viz.MOUSEBUTTON_LEFT, pickInteract)
 
-# --------- INIT ----------
 
 def initializeInventoryUI():
     createInventoryUI()
